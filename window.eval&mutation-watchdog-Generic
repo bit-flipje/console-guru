@@ -1,0 +1,34 @@
+// Hook window.eval and Function constructor globally
+window.eval = new Proxy(window.eval, {
+  apply(target, thisArg, args) {
+    const code = args[0]?.toString() || "";
+    if (/alert|constructor|document|window|location|eval/i.test(code)) {
+      console.error("Suspicious eval() call detected:", code);
+    }
+    return Reflect.apply(target, thisArg, args);
+  }
+});
+
+window.Function = new Proxy(Function, {
+  construct(target, args) {
+    const code = args.join(", ");
+    if (/alert|constructor|document|window|location|eval/i.test(code)) {
+      console.error("Suspicious Function() constructor used:", code);
+    }
+    return new target(...args);
+  }
+});
+
+// Monitor DOM for potential injection of payloads
+new MutationObserver((mutations) => {
+  mutations.forEach(m => {
+    m.addedNodes?.forEach(n => {
+      const html = n.outerHTML || n.textContent || "";
+      if (/(alert|onerror|onload|script|src=|eval|constructor)/i.test(html)) {
+        console.warn("Possible DOM injection detected:", n);
+      }
+    });
+  });
+}).observe(document.body, { childList: true, subtree: true });
+
+console.log("Generic Eval & DOM Watchdog is now running.");

@@ -1,0 +1,25 @@
+//  Hook window.eval to catch any dynamic code execution
+window.eval = new Proxy(eval, {
+  apply(target, thisArg, args) {
+    if (args[0]?.toString().toLowerCase().includes("probe") ||
+        args[0]?.toString().toLowerCase().includes("constructor") ||
+        args[0]?.toString().toLowerCase().includes("alert")) {
+      console.error("eval() called with suspicious payload:", args[0]);
+    }
+    return Reflect.apply(target, thisArg, args);
+  }
+});
+
+//  Hook MutationObserver to catch if your payload is injected into the DOM
+new MutationObserver((mutations) => {
+  mutations.forEach(m => {
+    m.addedNodes?.forEach(n => {
+      const html = n.outerHTML || n.textContent || "";
+      if (/__gtm_probe__|constructor|eval|alert/i.test(html)) {
+        console.warn("Possible DOM injection detected:", n);
+      }
+    });
+  });
+}).observe(document.body, { childList: true, subtree: true });
+
+console.log("Eval hook and DOM injection monitor are active.");
